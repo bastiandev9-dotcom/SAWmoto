@@ -1,36 +1,165 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SAWmoto Frontend
 
-## Getting Started
+Frontend aplikasi Sistem Pendukung Keputusan pemilihan motor menggunakan metode SAW (Simple Additive Weighting). Dibangun dengan Next.js 16 dan TypeScript.
 
-First, run the development server:
+## Tech Stack
+
+- **Next.js 16** - React framework dengan App Router
+- **React 19** - UI library
+- **TypeScript** - Type safety
+- **Chart.js** + **react-chartjs-2** - Visualisasi grafik
+- **jsPDF** + **jspdf-autotable** - Export PDF
+- **React Icons** - Icon library
+- **Font Awesome** - Icon library
+- **Iconify** - Icon library
+
+## Prerequisites
+
+Pastikan sudah terinstall:
+
+1. **Node.js** (v18 atau lebih baru)
+   ```bash
+   node --version
+   ```
+
+2. **npm** (biasanya sudah termasuk dengan Node.js)
+   ```bash
+   npm --version
+   ```
+
+3. **Backend API** sudah berjalan
+   - Pastikan backend SAWmoto sudah running di `http://localhost:3000`
+   - Lihat README backend untuk instalasi
+
+## Instalasi
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/bastiandev9-dotcom/SAWmoto.git
+cd SAWmoto/nextjs-frontend
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Setup Environment Variables
+
+Buat file `.env.local` di folder `nextjs-frontend/`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3000/api
+```
+
+Untuk production, ganti dengan URL backend yang sesuai:
+```env
+NEXT_PUBLIC_API_URL=https://your-backend-url.com/api
+```
+
+### 4. Jalankan Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Aplikasi berjalan di: `http://localhost:3001` (atau port lain jika 3000 terpakai)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 5. Build untuk Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## Fitur
 
-To learn more about Next.js, take a look at the following resources:
+### Halaman Utama (/)
+- Hero section dengan animasi
+- Penjelasan metode SAW
+- Card fitur utama
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Data Motor (/data)
+- Tabel data motor Honda
+- CRUD motor (tambah, edit, hapus)
+- 16 jenis motor tersedia
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Kalkulator SAW (/hitung)
+- Input bobot kriteria
+- Input nilai alternatif
+- Kalkulasi otomatis normalisasi dan ranking
 
-## Deploy on Vercel
+### Hasil Ranking (/hasil)
+- Tabel ranking motor
+- Visualisasi chart
+- Export ke PDF
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Bandingkan (/bandingkan)
+- Perbandingan motor side-by-side
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Tentang (/tentang)
+- Informasi aplikasi
+- Penjelasan metode SAW
+
+## Project Structure
+
+```
+nextjs-frontend/
+├── app/
+│   ├── bandingkan/
+│   │   └── page.tsx
+│   ├── data/
+│   │   └── page.tsx
+│   ├── hasil/
+│   │   └── page.tsx
+│   ├── hitung/
+│   │   └── page.tsx
+│   ├── tentang/
+│   │   └── page.tsx
+│   ├── favicon.ico
+│   ├── globals.css
+│   ├── layout.tsx
+│   ├── page.module.css
+│   └── page.tsx
+├── components/
+│   ├── AnimationScript.tsx
+│   ├── Footer.tsx
+│   ├── Navbar.tsx
+│   ├── ThemeToggle.tsx
+│   └── Toast.tsx
+├── lib/
+│   └── api.ts
+├── public/
+│   └── icons/
+├── .env.local
+├── next.config.ts
+├── package.json
+└── tsconfig.json
+```
+
+## API Integration
+
+Frontend berkomunikasi dengan backend melalui endpoint:
+
+- `GET /api/motors` - Ambil semua motor
+- `POST /api/motors` - Tambah motor baru
+- `PUT /api/motors/:id` - Update motor
+- `DELETE /api/motors/:id` - Hapus motor
+- `GET /api/motors/calculate/saw` - Hitung SAW ranking
+- `GET /api/kriteria` - Ambil semua kriteria
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Jalankan development server |
+| `npm run build` | Build untuk production |
+| `npm start` | Jalankan production server |
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NEXT_PUBLIC_API_URL` | URL backend API | `http://localhost:3000/api` |
