@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/components/Toast';
-import { getMotors, calculateSAW, Motor, RankedMotor } from '@/lib/api';
+import { calculateSAW, Motor, RankedMotor } from '@/lib/api';
 
 const fmt = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 const f4 = (n: number) => parseFloat(n.toFixed(4));
@@ -13,7 +13,7 @@ export default function BandingkanPage() {
   const [right, setRight] = useState<RankedMotor | null>(null);
 
   useEffect(() => {
-    Promise.all([calculateSAW(), getMotors()]).then(([saw]) => {
+    calculateSAW().then((saw) => {
       setMotors(saw);
     }).catch(() => showToast('❌ Gagal memuat data!', 'error'));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
