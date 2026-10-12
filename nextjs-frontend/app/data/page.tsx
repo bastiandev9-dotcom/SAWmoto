@@ -20,7 +20,7 @@ const kriteriaIcons: Record<string, React.ReactNode> = {
 };
 
 const kriteriaData = [
-  ['C1 — Harga', '5', 'Benefit'],
+  ['C1 — Harga', '5', 'Cost'],
   ['C2 — Kapasitas Tangki', '3', 'Benefit'],
   ['C3 — Volume Silinder (CC)', '4', 'Benefit'],
 ];
