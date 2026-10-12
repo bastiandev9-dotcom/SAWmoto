@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { useToast } from '@/components/Toast';
-import { calculateSAW, getMotors, Motor, RankedMotor } from '@/lib/api';
+import { calculateSAW, RankedMotor } from '@/lib/api';
 import { Icon } from '@iconify/react';
 import { IoStatsChart } from "react-icons/io5";
 import { RiDonutChartFill } from "react-icons/ri";
@@ -22,7 +22,6 @@ const medals: Record<number, React.ReactNode> = { 1: <Icon icon="emojione:1st-pl
 export default function HasilPage() {
   const { showToast } = useToast();
   const [ranked, setRanked] = useState<RankedMotor[]>([]);
-  const [allMotors, setAllMotors] = useState<Motor[]>([]);
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState<RankedMotor | null>(null);
 
@@ -59,13 +58,11 @@ export default function HasilPage() {
         const parsed: RankedMotor[] = JSON.parse(saved);
         const withRank = parsed.map((m, i) => ({ ...m, rank: i + 1 }));
         setRanked(withRank);
-        setAllMotors(withRank as unknown as Motor[]);
         return;
       } catch { /* fallback to API */ }
     }
-    Promise.all([calculateSAW(), getMotors()]).then(([saw, motors]) => {
+    calculateSAW().then((saw) => {
       setRanked(saw);
-      setAllMotors(motors);
     }).catch(() => showToast(' Gagal memuat ranking!', 'error'));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -90,11 +87,7 @@ export default function HasilPage() {
     datasets: [{ data: [tipeCount.Matic, tipeCount.Moped, tipeCount.Sport], backgroundColor: ['rgba(74,222,128,0.7)', 'rgba(245,200,66,0.7)', 'rgba(255,107,53,0.7)'], borderColor: '#12121a', borderWidth: 2 }]
   };
 
-  const getNorm = (motor: RankedMotor, key: keyof Motor) => {
-    const vals = allMotors.map(m => m[key] as number);
-    if (key === 'harga') return Math.min(...vals) / (motor[key] as number);
-    return (motor[key] as number) / Math.max(...vals);
-  };
+  const getNorm = (motor: RankedMotor, key: string) => motor[`r_${key}`] as number;
 
   const filteredRanked = filter === 'all' ? ranked : ranked.filter(m => m.tipe === filter);
 
@@ -191,11 +184,12 @@ export default function HasilPage() {
               ))}
             </div>
             <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Detail SAW</div>
-            {allMotors.length > 0 && (() => {
+            {(() => {
               const rC1 = getNorm(selected, 'harga'), rC2 = getNorm(selected, 'tangki'), rC3 = getNorm(selected, 'cc');
+              const wC1 = selected.w_harga as number ?? 5, wC2 = selected.w_tangki as number ?? 3, wC3 = selected.w_cc as number ?? 4;
               return (
                 <div>
-                  {[['r_C1 (Harga)', f4(rC1)], ['r_C2 (Tangki)', f4(rC2)], ['r_C3 (CC)', f4(rC3)], [`Vi = 5×${f4(rC1)} + 3×${f4(rC2)} + 4×${f4(rC3)}`, f4(selected.vi)]].map(([l, v]) => (
+                  {[['r_C1 (Harga)', f4(rC1)], ['r_C2 (Tangki)', f4(rC2)], ['r_C3 (CC)', f4(rC3)], [`Vi = ${wC1}×${f4(rC1)} + ${wC2}×${f4(rC2)} + ${wC3}×${f4(rC3)}`, f4(selected.vi)]].map(([l, v]) => (
                     <div key={String(l)} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid var(--border)', fontSize: '0.85rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>{l}</span>
                       <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>{v}</span>
