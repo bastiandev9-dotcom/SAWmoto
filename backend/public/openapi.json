@@ -57,6 +57,26 @@
           },
           "500": { "$ref": "#/components/responses/Error" }
         }
+      },
+      "post": {
+        "tags": ["Motors"],
+        "summary": "Hitung SAW (subset + bobot custom)",
+        "description": "Sama seperti GET, tapi bisa pilih subset motor (`ids`) dan menimpa bobot kriteria (`bobot`). Field kosong = semua motor + bobot DB.",
+        "requestBody": {
+          "required": false,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SawRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Motor + `w_<key>`, `r_<key>` tiap kriteria + `vi` + `rank`",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/RankedMotor" } } } }
+          },
+          "400": {
+            "description": "Input tidak valid / motor kurang dari 2",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" }, "example": { "message": "Minimal 2 motor diperlukan" } } }
+          },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
       }
     },
     "/motors/{id}": {
@@ -125,7 +145,7 @@
           "id": { "type": "string", "example": "A01" },
           "nama": { "type": "string", "example": "Vario 125" },
           "tipe": { "type": "string", "enum": ["Matic", "Moped", "Sport"], "example": "Matic" },
-          "harga": { "type": "number", "example": 11550000, "description": "Cost" },
+          "harga": { "type": "number", "example": 11550000, "description": "Cost (semakin murah semakin baik)" },
           "tangki": { "type": "number", "example": 5.5, "description": "Liter" },
           "cc": { "type": "number", "example": 125 }
         }
@@ -151,6 +171,9 @@
               "r_harga": { "type": "number", "example": 0.63 },
               "r_tangki": { "type": "number", "example": 1 },
               "r_cc": { "type": "number", "example": 1 },
+              "w_harga": { "type": "number", "example": 5, "description": "Bobot aktual setelah override" },
+              "w_tangki": { "type": "number", "example": 3 },
+              "w_cc": { "type": "number", "example": 4 },
               "vi": { "type": "number", "example": 8.15 },
               "rank": { "type": "integer", "example": 1 }
             }
@@ -164,8 +187,15 @@
           "id": { "type": "string", "example": "C1" },
           "label": { "type": "string", "example": "Harga" },
           "key": { "type": "string", "enum": ["harga", "tangki", "cc"], "example": "harga" },
-          "type": { "type": "string", "enum": ["benefit", "cost"], "example": "benefit" },
+          "type": { "type": "string", "enum": ["benefit", "cost"], "example": "cost" },
           "bobot": { "type": "number", "example": 5 }
+        }
+      },
+      "SawRequest": {
+        "type": "object",
+        "properties": {
+          "ids": { "type": "array", "items": { "type": "string" }, "example": ["A01", "A02"], "description": "Subset motor (kode `id`). Kosong = semua." },
+          "bobot": { "type": "object", "example": { "harga": 5, "tangki": 3, "cc": 4 }, "description": "Override bobot per `key` kriteria." }
         }
       },
       "ErrorMessage": {
