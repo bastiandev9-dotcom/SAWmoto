@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
-import { getMotors, Motor } from '@/lib/api';
+import { getMotors, calculateSAW, Motor } from '@/lib/api';
 import { TiArrowLeft, TiArrowRight } from "react-icons/ti";
 import { MdOutlineCheck, MdWarning } from "react-icons/md";
 import { Icon } from '@iconify/react';
@@ -47,18 +47,21 @@ export default function HitungPage() {
   const selectAll = () => { const vis = filterAlt === 'all' ? motors : motors.filter(m => m.tipe === filterAlt); setSelectedIds(prev => { const s = new Set(prev); vis.forEach(m => s.add(m.id)); return s; }); };
   const clearAll = () => { const vis = filterAlt === 'all' ? motors : motors.filter(m => m.tipe === filterAlt); setSelectedIds(prev => { const s = new Set(prev); vis.forEach(m => s.delete(m.id)); return s; }); };
 
-  const buildMatriks = () => {
-    const sel = motors.filter(m => selectedIds.has(m.id));
-    const min_harga = Math.min(...sel.map(m => m.harga));
-    const max = { tangki: Math.max(...sel.map(m => m.tangki)), cc: Math.max(...sel.map(m => m.cc)) };
-    const norm: RankedMotor[] = sel.map(m => ({ ...m, vi: 0, r_C1: min_harga / m.harga, r_C2: m.tangki / max.tangki, r_C3: m.cc / max.cc }));
-    setNormalized(norm);
-    setSawResult(norm.map(m => ({ ...m, vi: bobot.C1 * (m.r_C1 as number) + bobot.C2 * (m.r_C2 as number) + bobot.C3 * (m.r_C3 as number) })).sort((a, b) => b.vi - a.vi));
+  const buildMatriks = async () => {
+    const result = await calculateSAW({
+      ids: [...selectedIds],
+      bobot: { harga: bobot.C1, tangki: bobot.C2, cc: bobot.C3 },
+    });
+    setNormalized(result);
+    setSawResult(result);
   };
 
-  const goStep = (s: Step) => {
+  const goStep = async (s: Step) => {
     if (s === 1 && selectedIds.size < 2) { showToast(' Pilih minimal 2 motor!', 'error'); return; }
-    if (s === 2) buildMatriks();
+    if (s === 2) {
+      try { await buildMatriks(); }
+      catch (e) { showToast(e instanceof Error ? e.message : 'Gagal menghitung!', 'error'); return; }
+    }
     setStep(s);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -148,19 +151,19 @@ export default function HitungPage() {
             <div className="section-label">Matriks Normalisasi (R)</div>
             <div className="table-container" style={{ marginBottom: '2rem' }}>
               <table style={{ width: '100%' }}>
-                <thead><tr><th>Alternatif</th>{KRITERIA.map(k => <th key={k.id}>r_{k.id}</th>)}</tr></thead>
-                <tbody>{normalized.map(m => <tr key={m.id}><td><strong>{m.nama}</strong></td>{KRITERIA.map(k => <td key={k.id} style={{ fontFamily: 'var(--font-mono)' }}>{f4(m[`r_${k.id}`] as number)}</td>)}</tr>)}</tbody>
+                <thead><tr><th>Alternatif</th>{KRITERIA.map(k => <th key={k.id}>r_{k.key}</th>)}</tr></thead>
+                <tbody>{normalized.map(m => <tr key={m.id}><td><strong>{m.nama}</strong></td>{KRITERIA.map(k => <td key={k.id} style={{ fontFamily: 'var(--font-mono)' }}>{f4(m[`r_${k.key}`] as number)}</td>)}</tr>)}</tbody>
               </table>
             </div>
             <div className="section-label">Nilai Preferensi Vi = Σ(wj * rij)</div>
             <div className="table-container" style={{ marginBottom: '2rem' }}>
               <table style={{ width: '100%' }}>
-                <thead><tr><th>Rank</th><th>Alternatif</th>{KRITERIA.map(k => <th key={k.id}>w{bobot[k.id as keyof typeof bobot]} * r_{k.id}</th>)}<th>Vi</th></tr></thead>
+                <thead><tr><th>Rank</th><th>Alternatif</th>{KRITERIA.map(k => <th key={k.id}>w_{k.key} * r_{k.key}</th>)}<th>Vi</th></tr></thead>
                 <tbody>{sawResult.map((m, i) => (
                   <tr key={m.id} style={{ background: i === 0 ? 'rgba(245,200,66,0.04)' : '' }}>
                     <td style={{ fontFamily: 'var(--font-mono)' }}>{i + 1}</td>
                     <td><strong>{m.nama}</strong>{i === 0 && <span style={{ background: 'var(--accent)', color: '#0a0a0f', padding: '0.15rem 0.5rem', borderRadius: '99px', fontSize: '0.7rem', fontWeight: 700, marginLeft: '0.5rem' }}>TERBAIK</span>}</td>
-                    {KRITERIA.map(k => <td key={k.id} style={{ fontFamily: 'var(--font-mono)' }}>{f4(bobot[k.id as keyof typeof bobot] * (m[`r_${k.id}`] as number))}</td>)}
+                    {KRITERIA.map(k => <td key={k.id} style={{ fontFamily: 'var(--font-mono)' }}>{f4((m[`w_${k.key}`] as number) * (m[`r_${k.key}`] as number))}</td>)}
                     <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)' }}>{f4(m.vi)}</td>
                   </tr>
                 ))}</tbody>
