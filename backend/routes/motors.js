@@ -122,10 +122,13 @@ router.post('/', async (req, res) => {
   if (!id || !nama || !tipe || harga == null || tangki == null || cc == null)
     return res.status(400).json({ message: 'Field id, nama, tipe, harga, tangki, cc wajib diisi' });
   try {
+    if (await Motor.exists({ id }))
+      return res.status(409).json({ message: `Motor dengan id ${id} sudah ada` });
     const motor = new Motor({ id, nama, tipe, harga, tangki, cc });
     await motor.save();
     res.status(201).json(motor);
   } catch (error) {
+    if (error.code === 11000) return res.status(409).json({ message: `Motor dengan id ${id} sudah ada` });
     res.status(400).json({ message: error.message });
   }
 });
