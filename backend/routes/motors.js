@@ -4,16 +4,22 @@ const Motor = require('../models/Motor');
 const Kriteria = require('../models/Kriteria');
 
 // ===== SAW CALCULATION ENGINE =====
-function hitungSAW(data, kriteriaList) {
+function hitungSAW(data, kriteriaList, bobotOverride = {}) {
+  if (!data.length || !kriteriaList.length) return [];
+
   const normalized = data.map(motor => {
     const r = motor.toObject ? motor.toObject() : { ...motor };
     kriteriaList.forEach(k => {
       const vals = data.map(m => m[k.key]);
       const maxVal = Math.max(...vals);
       const minVal = Math.min(...vals);
-      // harga selalu cost, sisanya ikut type dari DB
-      const isCost = k.key === 'harga' || k.type === 'cost';
-      r['r_' + k.key] = isCost ? minVal / motor[k.key] : motor[k.key] / maxVal;
+      const value = motor[k.key];
+      const bobot = bobotOverride[k.key] != null ? bobotOverride[k.key] : k.bobot;
+      r['w_' + k.key] = bobot;
+      // type: cost -> min/x, benefit -> x/max. Guard agar tak bagi nol.
+      r['r_' + k.key] = k.type === 'cost'
+        ? (value > 0 ? minVal / value : (minVal === 0 ? 1 : 0))
+        : (maxVal > 0 ? value / maxVal : 0);
     });
     return r;
   });
@@ -21,7 +27,7 @@ function hitungSAW(data, kriteriaList) {
   const withScore = normalized.map(motor => {
     let vi = 0;
     kriteriaList.forEach(k => {
-      vi += k.bobot * motor['r_' + k.key];
+      vi += motor['w_' + k.key] * motor['r_' + k.key];
     });
     return { ...motor, vi };
   });
@@ -44,12 +50,55 @@ router.get('/calculate/saw', async (req, res) => {
   try {
     const motors = await Motor.find();
     const kriteria = await Kriteria.find();
-    
+
     if (motors.length < 2) {
       return res.status(400).json({ message: 'Minimal 2 motor diperlukan' });
     }
-    
+    if (!kriteria.length) {
+      return res.status(400).json({ message: 'Kriteria belum tersedia' });
+    }
+
     const result = hitungSAW(motors, kriteria);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ===== POST SAW CALCULATION (subset motor + bobot custom) =====
+router.post('/calculate/saw', async (req, res) => {
+  try {
+    const { ids, bobot } = req.body || {};
+
+    if (ids != null && !Array.isArray(ids)) {
+      return res.status(400).json({ message: 'Field ids harus berupa array' });
+    }
+    if (bobot != null && (typeof bobot !== 'object' || Array.isArray(bobot))) {
+      return res.status(400).json({ message: 'Field bobot harus berupa object' });
+    }
+
+    let motors = await Motor.find();
+    if (Array.isArray(ids) && ids.length) {
+      motors = motors.filter(m => ids.includes(m.id));
+    }
+
+    const kriteria = await Kriteria.find();
+    if (motors.length < 2) {
+      return res.status(400).json({ message: 'Minimal 2 motor diperlukan' });
+    }
+    if (!kriteria.length) {
+      return res.status(400).json({ message: 'Kriteria belum tersedia' });
+    }
+
+    const bobotOverride = {};
+    if (bobot) {
+      for (const k of kriteria) {
+        const v = Number(bobot[k.key]);
+        if (Number.isFinite(v) && v > 0) bobotOverride[k.key] = v;
+      }
+    }
+
+    const result = hitungSAW(motors, kriteria, bobotOverride);
     res.json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });
