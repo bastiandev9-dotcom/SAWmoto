@@ -8,5 +8,10 @@ export const getMotors = () => fetch(`${API}/motors`).then(r => { if (!r.ok) thr
 export const createMotor = (data: Motor) => fetch(`${API}/motors`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error('Gagal'); return r.json(); });
 export const updateMotor = (id: string, data: Motor) => fetch(`${API}/motors/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => { if (!r.ok) throw new Error('Gagal'); return r.json(); });
 export const deleteMotor = (id: string) => fetch(`${API}/motors/${id}`, { method: 'DELETE' }).then(r => { if (!r.ok) throw new Error('Gagal'); });
-export const calculateSAW = () => fetch(`${API}/motors/calculate/saw`).then(r => { if (!r.ok) throw new Error('Gagal'); return r.json() as Promise<RankedMotor[]>; });
+export const calculateSAW = (payload?: { ids?: string[]; bobot?: Record<string, number> }) =>
+  fetch(`${API}/motors/calculate/saw`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload ?? {}),
+  }).then(async r => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || 'Gagal'); return r.json() as Promise<RankedMotor[]>; });
 export const getKriteria = () => fetch(`${API}/kriteria`).then(r => { if (!r.ok) throw new Error('Gagal'); return r.json() as Promise<Kriteria[]>; });
