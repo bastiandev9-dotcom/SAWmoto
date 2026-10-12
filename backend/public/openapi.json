@@ -133,6 +133,56 @@
           },
           "500": { "$ref": "#/components/responses/Error" }
         }
+      },
+      "post": {
+        "tags": ["Kriteria"],
+        "summary": "Tambah kriteria",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/KriteriaInput" } } }
+        },
+        "responses": {
+          "201": { "description": "Kriteria dibuat", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Kriteria" } } } },
+          "400": { "$ref": "#/components/responses/Error" },
+          "409": { "description": "id/key sudah ada", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } } }
+        }
+      }
+    },
+    "/kriteria/{id}": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "C4" }
+      ],
+      "put": {
+        "tags": ["Kriteria"],
+        "summary": "Update kriteria by id",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/KriteriaInput" } } } },
+        "responses": {
+          "200": { "description": "Kriteria hasil update", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Kriteria" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "409": { "description": "key sudah dipakai", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Kriteria"],
+        "summary": "Hapus kriteria by id",
+        "responses": {
+          "200": { "description": "Terhapus", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["Umum"],
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Status server",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" }, "db": { "type": "string" }, "uptime": { "type": "number" } } }, "example": { "status": "ok", "db": "connected", "uptime": 123 } } }
+          }
+        }
       }
     }
   },
@@ -196,6 +246,17 @@
         "properties": {
           "ids": { "type": "array", "items": { "type": "string" }, "example": ["A01", "A02"], "description": "Subset motor (kode `id`). Kosong = semua." },
           "bobot": { "type": "object", "example": { "harga": 5, "tangki": 3, "cc": 4 }, "description": "Override bobot per `key` kriteria." }
+        }
+      },
+      "KriteriaInput": {
+        "type": "object",
+        "required": ["id", "label", "key", "type", "bobot"],
+        "properties": {
+          "id": { "type": "string", "example": "C4" },
+          "label": { "type": "string", "example": "Harga" },
+          "key": { "type": "string", "example": "harga" },
+          "type": { "type": "string", "enum": ["benefit", "cost"], "example": "cost" },
+          "bobot": { "type": "number", "example": 5 }
         }
       },
       "ErrorMessage": {
