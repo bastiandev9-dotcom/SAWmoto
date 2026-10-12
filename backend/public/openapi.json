@@ -1,0 +1,187 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SAWmoto Backend API",
+    "version": "1.0.0",
+    "description": "Backend sistem pendukung keputusan pemilihan motor dengan metode SAW (Simple Additive Weighting).\n\n**Port:** backend `3000`, frontend Next.js `3001`. Root `/` tidak punya route (404, wajar)."
+  },
+  "servers": [
+    { "url": "http://localhost:3000/api", "description": "Local" }
+  ],
+  "tags": [
+    { "name": "Motors", "description": "CRUD data motor + perhitungan SAW" },
+    { "name": "Kriteria", "description": "Data kriteria penilaian (read-only)" }
+  ],
+  "paths": {
+    "/motors": {
+      "get": {
+        "tags": ["Motors"],
+        "summary": "Ambil semua motor",
+        "responses": {
+          "200": {
+            "description": "Daftar motor",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Motor" } } } }
+          },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "post": {
+        "tags": ["Motors"],
+        "summary": "Tambah motor",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MotorInput" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Motor dibuat",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Motor" } } }
+          },
+          "400": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/motors/calculate/saw": {
+      "get": {
+        "tags": ["Motors"],
+        "summary": "Hitung perangkingan SAW",
+        "description": "Normalisasi tiap kriteria (`harga` selalu cost, sisanya ikut `type`), lalu `Vi = Σ (bobot × r)`, urut menurun, tambah `rank`. Minimal 2 motor.",
+        "responses": {
+          "200": {
+            "description": "Motor + `r_<key>` tiap kriteria + `vi` + `rank`",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/RankedMotor" } } } }
+          },
+          "400": {
+            "description": "Motor kurang dari 2",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" }, "example": { "message": "Minimal 2 motor diperlukan" } } }
+          },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/motors/{id}": {
+      "parameters": [
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "A01", "description": "Kode motor (bukan `_id` MongoDB)" }
+      ],
+      "get": {
+        "tags": ["Motors"],
+        "summary": "Ambil motor by id",
+        "responses": {
+          "200": { "description": "Motor", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Motor" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "put": {
+        "tags": ["Motors"],
+        "summary": "Update motor by id",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MotorInput" } } }
+        },
+        "responses": {
+          "200": { "description": "Motor hasil update", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Motor" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "400": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "delete": {
+        "tags": ["Motors"],
+        "summary": "Hapus motor by id",
+        "responses": {
+          "200": {
+            "description": "Terhapus",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "id": { "type": "string" } } }, "example": { "message": "Motor berhasil dihapus", "id": "A04" } } }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/kriteria": {
+      "get": {
+        "tags": ["Kriteria"],
+        "summary": "Ambil semua kriteria",
+        "responses": {
+          "200": {
+            "description": "Daftar kriteria",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Kriteria" } }, "example": [
+              { "id": "C1", "label": "Harga", "key": "harga", "type": "benefit", "bobot": 5 },
+              { "id": "C2", "label": "Kapasitas Tangki", "key": "tangki", "type": "benefit", "bobot": 3 },
+              { "id": "C3", "label": "Volume Silinder (CC)", "key": "cc", "type": "benefit", "bobot": 4 }
+            ] } }
+          },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Motor": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "6a02b9e5ab3bb6c15e718dd7" },
+          "id": { "type": "string", "example": "A01" },
+          "nama": { "type": "string", "example": "Vario 125" },
+          "tipe": { "type": "string", "enum": ["Matic", "Moped", "Sport"], "example": "Matic" },
+          "harga": { "type": "number", "example": 11550000, "description": "Cost" },
+          "tangki": { "type": "number", "example": 5.5, "description": "Liter" },
+          "cc": { "type": "number", "example": 125 }
+        }
+      },
+      "MotorInput": {
+        "type": "object",
+        "required": ["id", "nama", "tipe", "harga", "tangki", "cc"],
+        "properties": {
+          "id": { "type": "string", "example": "A04" },
+          "nama": { "type": "string", "example": "Beat" },
+          "tipe": { "type": "string", "enum": ["Matic", "Moped", "Sport"], "example": "Matic" },
+          "harga": { "type": "number", "example": 18000000 },
+          "tangki": { "type": "number", "example": 4.2 },
+          "cc": { "type": "number", "example": 110 }
+        }
+      },
+      "RankedMotor": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Motor" },
+          {
+            "type": "object",
+            "properties": {
+              "r_harga": { "type": "number", "example": 0.63 },
+              "r_tangki": { "type": "number", "example": 1 },
+              "r_cc": { "type": "number", "example": 1 },
+              "vi": { "type": "number", "example": 8.15 },
+              "rank": { "type": "integer", "example": 1 }
+            }
+          }
+        ]
+      },
+      "Kriteria": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "6a02ba3bab3bb6c15e718de7" },
+          "id": { "type": "string", "example": "C1" },
+          "label": { "type": "string", "example": "Harga" },
+          "key": { "type": "string", "enum": ["harga", "tangki", "cc"], "example": "harga" },
+          "type": { "type": "string", "enum": ["benefit", "cost"], "example": "benefit" },
+          "bobot": { "type": "number", "example": 5 }
+        }
+      },
+      "ErrorMessage": {
+        "type": "object",
+        "properties": { "message": { "type": "string" } }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Error server",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } }
+      },
+      "NotFound": {
+        "description": "Tidak ditemukan",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" }, "example": { "message": "Motor tidak ditemukan" } } }
+      }
+    }
+  }
+}
