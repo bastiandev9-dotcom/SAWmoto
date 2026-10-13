@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/components/Toast';
-import { getMotors, createMotor, updateMotor, deleteMotor, Motor } from '@/lib/api';
+import { getMotors, getKriteria, createMotor, updateMotor, deleteMotor, Motor, Kriteria } from '@/lib/api';
 import { FaFileCsv } from "react-icons/fa6";
 import { BsDatabaseAdd } from "react-icons/bs";
 import { ImPencil2 } from "react-icons/im";
@@ -14,16 +14,10 @@ import { LuNotepadText } from "react-icons/lu";
 
 
 const kriteriaIcons: Record<string, React.ReactNode> = {
-  'C1 — Harga': <FaMoneyBillWave color='rgba(59, 195, 59, 0.53)' />,
-  'C2 — Kapasitas Tangki': <FaGasPump color='rgba(207, 25, 25, 0.4)'/>,
-  'C3 — Volume Silinder (CC)': <FaCog  color='rgba(197, 173, 183, 0.4)'/>,
+  harga: <FaMoneyBillWave color='rgba(59, 195, 59, 0.53)' />,
+  tangki: <FaGasPump color='rgba(207, 25, 25, 0.4)' />,
+  cc: <FaCog color='rgba(197, 173, 183, 0.4)' />,
 };
-
-const kriteriaData = [
-  ['C1 — Harga', '5', 'Cost'],
-  ['C2 — Kapasitas Tangki', '3', 'Benefit'],
-  ['C3 — Volume Silinder (CC)', '4', 'Benefit'],
-];
 
 
 
@@ -34,6 +28,7 @@ const emptyForm = (): Motor => ({ id: '', nama: '', tipe: 'Matic', harga: 0, tan
 export default function DataPage() {
   const { showToast } = useToast();
   const [motors, setMotors] = useState<Motor[]>([]);
+  const [kriteria, setKriteria] = useState<Kriteria[]>([]);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<{ key: keyof Motor | null; asc: boolean }>({ key: null, asc: true });
@@ -43,8 +38,9 @@ export default function DataPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await getMotors();
+      const [data, kri] = await Promise.all([getMotors(), getKriteria()]);
       setMotors(data);
+      setKriteria(kri);
     } catch {
       showToast('Gagal memuat data. Pastikan API berjalan.', 'error');
     }
@@ -123,7 +119,7 @@ export default function DataPage() {
       <div className="page-hero">
         <div className="hero-badge">Dataset</div>
         <h1>Data Motor Honda</h1>
-        <p>16 alternatif kendaraan roda dua Honda dengan spesifikasi Harga, Kapasitas Tangki, dan Volume Silinder (CC).</p>
+        <p>{motors.length} alternatif kendaraan roda dua Honda dengan spesifikasi Harga, Kapasitas Tangki, dan Volume Silinder (CC).</p>
       </div>
 
       <div className="section" style={{ paddingTop: '2rem' }}>
@@ -273,14 +269,14 @@ export default function DataPage() {
         <div style={{ marginTop: '3rem' }}>
         <div className="section-label" data-reveal="left">Keterangan Kriteria</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '1rem', marginTop: '1rem' }}>
-          {kriteriaData.map(([label, bobot, type]) => (
-            <div key={label} className="card">
+          {kriteria.map(k => (
+            <div key={k.id} className="card">
               <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-                {kriteriaIcons[label]}
+                {kriteriaIcons[k.key]}
               </div>
-              <div style={{ fontWeight: 700, marginBottom: '0.3rem' }}>{label}</div>
+              <div style={{ fontWeight: 700, marginBottom: '0.3rem' }}>{k.id} — {k.label}</div>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                Bobot: <b style={{ color: 'var(--accent)' }}>{bobot}</b> · Tipe: <b style={{ color: 'var(--success)' }}>{type}</b>
+                Bobot: <b style={{ color: 'var(--accent)' }}>{k.bobot}</b> · Tipe: <b style={{ color: 'var(--success)' }}>{k.type === 'cost' ? 'Cost' : 'Benefit'}</b>
               </div>
             </div>
           ))}
