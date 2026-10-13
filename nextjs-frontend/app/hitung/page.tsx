@@ -53,6 +53,7 @@ export default function HitungPage() {
     });
     setNormalized(result);
     setSawResult(result);
+    localStorage.setItem('sawResult', JSON.stringify(result));
   };
 
   const goStep = async (s: Step) => {
