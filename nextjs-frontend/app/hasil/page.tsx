@@ -35,7 +35,7 @@ export default function HasilPage() {
     doc.text('Ranking Motor Honda - Metode SAW', 14, 18);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text(`Bobot: C1(Harga)=5, C2(Tangki)=3, C3(CC)=4  |  Total: ${ranked.length} motor  |  ${new Date().toLocaleDateString('id-ID')}`, 14, 26);
+    doc.text(`Total: ${ranked.length} motor  |  ${new Date().toLocaleDateString('id-ID')}`, 14, 26);
 
     autoTable(doc, {
       startY: 32,
@@ -96,7 +96,7 @@ export default function HasilPage() {
       <div className="page-hero">
         <div className="hero-badge">Hasil SAW</div>
         <h1>Ranking Motor Honda</h1>
-        <p>Peringkat 16 motor Honda berdasarkan metode SAW dengan bobot W = (5, 3, 4).</p>
+        <p>Peringkat {ranked.length} motor Honda berdasarkan metode SAW.</p>
       </div>
 
       <div className="ranking-layout">
