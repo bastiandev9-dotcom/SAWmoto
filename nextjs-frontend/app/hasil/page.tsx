@@ -1,13 +1,16 @@
 'use client';
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { useToast } from '@/components/Toast';
-import { calculateSAW, RankedMotor } from '@/lib/api';
+import { RankedMotor } from '@/lib/api';
 import { Icon } from '@iconify/react';
 import { IoStatsChart } from "react-icons/io5";
 import { RiDonutChartFill } from "react-icons/ri";
 import { FaFilePdf } from "react-icons/fa6";
+import { CiCalculator2 } from "react-icons/ci";
+import { RxDoubleArrowRight } from "react-icons/rx";
 
 
 
@@ -22,6 +25,7 @@ const medals: Record<number, React.ReactNode> = { 1: <Icon icon="emojione:1st-pl
 export default function HasilPage() {
   const { showToast } = useToast();
   const [ranked, setRanked] = useState<RankedMotor[]>([]);
+  const [status, setStatus] = useState<'loading' | 'empty' | 'ready'>('loading');
   const [filter, setFilter] = useState('all');
   const [selected, setSelected] = useState<RankedMotor | null>(null);
 
@@ -56,17 +60,32 @@ export default function HasilPage() {
     if (saved) {
       try {
         const parsed: RankedMotor[] = JSON.parse(saved);
-        const withRank = parsed.map((m, i) => ({ ...m, rank: i + 1 }));
-        setRanked(withRank);
-        return;
-      } catch { /* fallback to API */ }
+        if (Array.isArray(parsed) && parsed.length) {
+          setRanked(parsed.map((m, i) => ({ ...m, rank: i + 1 })));
+          setStatus('ready');
+          return;
+        }
+      } catch { /* data rusak -> minta hitung ulang */ }
     }
-    calculateSAW().then((saw) => {
-      setRanked(saw);
-    }).catch(() => showToast(' Gagal memuat ranking!', 'error'));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    setStatus('empty');
+  }, []);
 
-  if (!ranked.length) return <div style={{ padding: '4rem', textAlign: 'center' }}>Memuat data ranking...</div>;
+  if (status === 'loading') return <div style={{ padding: '4rem', textAlign: 'center' }}>Memuat data ranking...</div>;
+
+  if (status === 'empty') {
+    return (
+      <div className="section" style={{ paddingTop: '4rem', textAlign: 'center' }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}><CiCalculator2 /></div>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', color: 'var(--text)', marginBottom: '0.5rem' }}>Belum Ada Hasil</div>
+        <p style={{ color: 'var(--text-muted)', maxWidth: '460px', margin: '0 auto 1.5rem' }}>
+          Hasil & ranking hanya muncul setelah kamu menghitung SAW di Kalkulator. Lakukan perhitungan terlebih dahulu.
+        </p>
+        <Link href="/hitung" className="btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+          Buka Kalkulator SAW <RxDoubleArrowRight size={20} />
+        </Link>
+      </div>
+    );
+  }
 
   const maxVi = ranked[0].vi;
   const top3 = ranked.slice(0, 3);
