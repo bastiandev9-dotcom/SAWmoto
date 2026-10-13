@@ -53,7 +53,7 @@ export default function HomePage() {
           <div className="feat-card" data-reveal="up">
             <div className="feat-icon"><FaMotorcycle /></div>
             <h3>Data Motor</h3>
-            <p>Lihat tabel lengkap 16 jenis motor Honda beserta spesifikasi harga, tangki, dan CC.</p>
+            <p>Lihat tabel lengkap motor Honda beserta spesifikasi harga, tangki, dan CC.</p>
             <Link href="/data" className="feat-link">Buka <RxDoubleArrowRight size={19}/></Link>
           </div>
           <div className="feat-card highlight" data-reveal="up">
