@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
-import { getMotors, calculateSAW, Motor } from '@/lib/api';
+import { getMotors, getKriteria, calculateSAW, Motor, Kriteria } from '@/lib/api';
 import { TiArrowLeft, TiArrowRight } from "react-icons/ti";
 import { MdOutlineCheck, MdWarning } from "react-icons/md";
 import { Icon } from '@iconify/react';
@@ -15,18 +15,15 @@ const f4 = (n: number) => parseFloat(n.toFixed(4));
 type Step = 0 | 1 | 2 | 3;
 interface RankedMotor extends Motor { vi: number; [key: string]: string | number; }
 
-const KRITERIA = [
-  { id: 'C1', label: 'Harga (C1)', key: 'harga', desc: 'Cost — semakin murah semakin baik' },
-  { id: 'C2', label: 'Kapasitas Tangki (C2)', key: 'tangki', desc: 'Benefit — semakin besar semakin baik' },
-  { id: 'C3', label: 'Volume Silinder (C3)', key: 'cc', desc: 'Benefit — semakin besar semakin baik' },
-];
+const descOf = (type: string) => type === 'cost' ? 'Cost — semakin murah semakin baik' : 'Benefit — semakin besar semakin baik';
 
 export default function HitungPage() {
   const { showToast } = useToast();
   const [motors, setMotors] = useState<Motor[]>([]);
+  const [kriteria, setKriteria] = useState<Kriteria[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [filterAlt, setFilterAlt] = useState('all');
-  const [bobot, setBobot] = useState({ C1: 5, C2: 3, C3: 4 });
+  const [bobot, setBobot] = useState<Record<string, number>>({});
   const [step, setStep] = useState<Step>(0);
   const [sawResult, setSawResult] = useState<RankedMotor[]>([]);
   const [normalized, setNormalized] = useState<RankedMotor[]>([]);
@@ -34,8 +31,10 @@ export default function HitungPage() {
   useEffect(() => {
     showToast(' Menghubungkan ke database...', 'info');
     localStorage.removeItem('sawResult');
-    getMotors().then(data => {
+    Promise.all([getMotors(), getKriteria()]).then(([data, kri]) => {
       setMotors(data);
+      setKriteria(kri);
+      setBobot(Object.fromEntries(kri.map(k => [k.id, k.bobot])));
       setSelectedIds(new Set(data.map(m => m.id)));
       showToast(` ${data.length} motor dari database!`, 'success');
     }).catch(() => showToast(' Gagal koneksi database!', 'error'));
@@ -50,7 +49,7 @@ export default function HitungPage() {
   const buildMatriks = async () => {
     const result = await calculateSAW({
       ids: [...selectedIds],
-      bobot: { harga: bobot.C1, tangki: bobot.C2, cc: bobot.C3 },
+      bobot: Object.fromEntries(kriteria.map(k => [k.key, bobot[k.id]])),
     });
     setNormalized(result);
     setSawResult(result);
@@ -123,11 +122,11 @@ export default function HitungPage() {
             <div className="card">
               <div className="card-title">Atur Bobot Kriteria</div>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '1.5rem' }}>Geser slider untuk menentukan bobot kepentingan tiap kriteria (1 = rendah, 10 = sangat tinggi).</p>
-              {KRITERIA.map(k => (
+              {kriteria.map(k => (
                 <div key={k.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 60px', alignItems: 'center', gap: '1rem', padding: '1rem', background: 'var(--surface2)', borderRadius: '10px', marginBottom: '0.8rem' }}>
-                  <div><div style={{ fontWeight: 600 }}>{k.label}</div><div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{k.desc}</div></div>
-                  <input type="range" min="1" max="10" step="1" value={bobot[k.id as keyof typeof bobot]} onChange={e => setBobot(b => ({ ...b, [k.id]: +e.target.value }))} style={{ width: '100%', accentColor: 'var(--accent)' }} />
-                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--accent)', textAlign: 'center' }}>{bobot[k.id as keyof typeof bobot]}</div>
+                  <div><div style={{ fontWeight: 600 }}>{k.label} ({k.id})</div><div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{descOf(k.type)}</div></div>
+                  <input type="range" min="1" max="10" step="1" value={bobot[k.id] ?? 1} onChange={e => setBobot(b => ({ ...b, [k.id]: +e.target.value }))} style={{ width: '100%', accentColor: 'var(--accent)' }} />
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--accent)', textAlign: 'center' }}>{bobot[k.id] ?? 1}</div>
                 </div>
               ))}
               <div style={{ background: 'var(--surface2)', borderLeft: '3px solid var(--accent)', padding: '1rem 1.2rem', borderRadius: '0 8px 8px 0', marginTop: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
@@ -144,26 +143,26 @@ export default function HitungPage() {
             <div className="section-label">Matriks Keputusan Awal (X)</div>
             <div className="table-container" style={{ marginBottom: '2rem' }}>
               <table style={{ width: '100%' }}>
-                <thead><tr><th>Alternatif</th>{KRITERIA.map(k => <th key={k.id}>{k.id} — {k.label.split(' ')[0]}</th>)}</tr></thead>
-                <tbody>{normalized.map(m => <tr key={m.id}><td><strong>{m.nama}</strong></td>{KRITERIA.map(k => <td key={k.id} style={{ fontFamily: 'var(--font-mono)' }}>{k.key === 'harga' ? fmt(m[k.key] as number) : m[k.key]}</td>)}</tr>)}</tbody>
+                <thead><tr><th>Alternatif</th>{kriteria.map(k => <th key={k.id}>{k.id} — {k.label}</th>)}</tr></thead>
+                <tbody>{normalized.map(m => <tr key={m.id}><td><strong>{m.nama}</strong></td>{kriteria.map(k => <td key={k.id} style={{ fontFamily: 'var(--font-mono)' }}>{k.key === 'harga' ? fmt(m[k.key] as number) : m[k.key]}</td>)}</tr>)}</tbody>
               </table>
             </div>
             <div className="section-label">Matriks Normalisasi (R)</div>
             <div className="table-container" style={{ marginBottom: '2rem' }}>
               <table style={{ width: '100%' }}>
-                <thead><tr><th>Alternatif</th>{KRITERIA.map(k => <th key={k.id}>r_{k.key}</th>)}</tr></thead>
-                <tbody>{normalized.map(m => <tr key={m.id}><td><strong>{m.nama}</strong></td>{KRITERIA.map(k => <td key={k.id} style={{ fontFamily: 'var(--font-mono)' }}>{f4(m[`r_${k.key}`] as number)}</td>)}</tr>)}</tbody>
+                <thead><tr><th>Alternatif</th>{kriteria.map(k => <th key={k.id}>r_{k.key}</th>)}</tr></thead>
+                <tbody>{normalized.map(m => <tr key={m.id}><td><strong>{m.nama}</strong></td>{kriteria.map(k => <td key={k.id} style={{ fontFamily: 'var(--font-mono)' }}>{f4(m[`r_${k.key}`] as number)}</td>)}</tr>)}</tbody>
               </table>
             </div>
             <div className="section-label">Nilai Preferensi Vi = Σ(wj * rij)</div>
             <div className="table-container" style={{ marginBottom: '2rem' }}>
               <table style={{ width: '100%' }}>
-                <thead><tr><th>Rank</th><th>Alternatif</th>{KRITERIA.map(k => <th key={k.id}>w_{k.key} * r_{k.key}</th>)}<th>Vi</th></tr></thead>
+                <thead><tr><th>Rank</th><th>Alternatif</th>{kriteria.map(k => <th key={k.id}>w_{k.key} * r_{k.key}</th>)}<th>Vi</th></tr></thead>
                 <tbody>{sawResult.map((m, i) => (
                   <tr key={m.id} style={{ background: i === 0 ? 'rgba(245,200,66,0.04)' : '' }}>
                     <td style={{ fontFamily: 'var(--font-mono)' }}>{i + 1}</td>
                     <td><strong>{m.nama}</strong>{i === 0 && <span style={{ background: 'var(--accent)', color: '#0a0a0f', padding: '0.15rem 0.5rem', borderRadius: '99px', fontSize: '0.7rem', fontWeight: 700, marginLeft: '0.5rem' }}>TERBAIK</span>}</td>
-                    {KRITERIA.map(k => <td key={k.id} style={{ fontFamily: 'var(--font-mono)' }}>{f4((m[`w_${k.key}`] as number) * (m[`r_${k.key}`] as number))}</td>)}
+                    {kriteria.map(k => <td key={k.id} style={{ fontFamily: 'var(--font-mono)' }}>{f4((m[`w_${k.key}`] as number) * (m[`r_${k.key}`] as number))}</td>)}
                     <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)' }}>{f4(m.vi)}</td>
                   </tr>
                 ))}</tbody>
