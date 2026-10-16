@@ -115,7 +115,7 @@ export default function TentangPage() {
 
           <div className="info-card" data-reveal="right" style={{ marginBottom: '1.5rem' }}>
             <h3>Spesifikasi Sistem</h3>
-            {[['Metode','SAW'],['Alternatif','motor Honda'],['Kriteria','3 kriteria'],['Bobot C1','5 (Harga, Cost)'],['Bobot C2','3 (Tangki, Benefit)'],['Bobot C3','4 (CC, Benefit)'],['Studi Kasus','PT. Sinar Sentosa'],['Produk','Honda']].map(([k, v]) => (
+            {[['Metode','SAW'],['Alternatif','motor Honda'],['Kriteria','3 kriteria'],['Bobot C1','5 (Harga, Cost)'],['Bobot C2','3 (Tangki, Benefit)'],['Bobot C3','4 (CC, Benefit)'],['Produk','Honda']].map(([k, v]) => (
               <div key={k} className="info-row"><span>{k}</span><span>{v}</span></div>
             ))}
           </div>
