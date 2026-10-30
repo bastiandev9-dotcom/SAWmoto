@@ -1,1 +1,1 @@
-Untuk menjalankan program baca README.MD pada subfolder backend dan nextjs-frontend. triggers
+Untuk menjalankan program baca README.MD pada subfolder backend dan nextjs-frontend.
