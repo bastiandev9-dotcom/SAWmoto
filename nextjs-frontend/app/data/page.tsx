@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/components/Toast';
+import { useAuth } from '@/components/AuthProvider';
 import { getMotors, getKriteria, createMotor, updateMotor, deleteMotor, Motor, Kriteria } from '@/lib/api';
 import { FaFileCsv } from "react-icons/fa6";
 import { BsDatabaseAdd } from "react-icons/bs";
@@ -27,6 +28,7 @@ const emptyForm = (): Motor => ({ id: '', nama: '', tipe: 'Matic', harga: 0, tan
 
 export default function DataPage() {
   const { showToast } = useToast();
+  const { admin } = useAuth();
   const [motors, setMotors] = useState<Motor[]>([]);
   const [kriteria, setKriteria] = useState<Kriteria[]>([]);
   const [filter, setFilter] = useState('all');
@@ -144,7 +146,11 @@ export default function DataPage() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-          <button onClick={openAdd} style={{ padding: '0.6rem 1.2rem', fontSize: '0.9rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}><BsDatabaseAdd /> Tambah Motor</button>
+          {admin ? (
+            <button onClick={openAdd} style={{ padding: '0.6rem 1.2rem', fontSize: '0.9rem', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}><BsDatabaseAdd /> Tambah Motor</button>
+          ) : (
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Login admin untuk mengubah data</span>
+          )}
         </div>
 
         <div className="table-container">
@@ -171,8 +177,12 @@ export default function DataPage() {
                   <td className="td-num">{m.tangki} L</td>
                   <td className="td-num">{m.cc} cc</td>
                   <td style={{ display: 'flex', gap: '0.3rem' }}>
-                    <button onClick={() => openEdit(m)} style={{ background: 'var(--accent)', color: '#000', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}><ImPencil2 /></button>
-                    <button onClick={() => del(m)} style={{ background: 'var(--danger)', color: '#fff', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}><MdDeleteForever /></button>
+                    {admin && (
+                      <>
+                        <button onClick={() => openEdit(m)} aria-label={`Edit ${m.nama}`} style={{ background: 'var(--accent)', color: '#000', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}><ImPencil2 /></button>
+                        <button onClick={() => del(m)} aria-label={`Hapus ${m.nama}`} style={{ background: 'var(--danger)', color: '#fff', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}><MdDeleteForever /></button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}

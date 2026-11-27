@@ -1,62 +1,63 @@
 const express = require('express');
 const router = express.Router();
-const Kriteria = require('../models/Kriteria');
-
-const TYPES = ['benefit', 'cost'];
-const isDuplicate = e => e.code === 11000;
+const kriteriaRepository = require('../repositories/kriteriaRepository');
+const { sendDatabaseError } = require('../lib/errors');
+const { requireAdmin, requireCsrf } = require('../middleware/auth');
+const {
+  validateKriteriaInput,
+  validateCriteriaRelationship,
+} = require('../lib/validation');
 
 router.get('/', async (req, res) => {
   try {
-    const kriteria = await Kriteria.find();
-    res.json(kriteria);
+    res.json(await kriteriaRepository.findAll());
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendDatabaseError(res, error);
   }
 });
 
-router.post('/', async (req, res) => {
-  const { id, label, key, type, bobot } = req.body;
-  if (!id || !label || !key || !type || bobot == null)
-    return res.status(400).json({ message: 'Field id, label, key, type, bobot wajib diisi' });
-  if (!TYPES.includes(type))
-    return res.status(400).json({ message: 'Type harus benefit atau cost' });
+router.post('/', requireAdmin, requireCsrf, async (req, res) => {
   try {
-    if (await Kriteria.exists({ id }))
-      return res.status(409).json({ message: `Kriteria dengan id ${id} sudah ada` });
-    if (await Kriteria.exists({ key }))
-      return res.status(409).json({ message: `Kriteria dengan key ${key} sudah ada` });
-    const kriteria = await new Kriteria({ id, label, key, type, bobot }).save();
-    res.status(201).json(kriteria);
+    const kriteria = validateKriteriaInput(req.body);
+    validateCriteriaRelationship(kriteria.key, kriteria.type);
+
+    if (await kriteriaRepository.existsById(kriteria.id)) {
+      return res.status(409).json({ message: `Kriteria dengan id ${kriteria.id} sudah ada` });
+    }
+    if (await kriteriaRepository.existsByKey(kriteria.key)) {
+      return res.status(409).json({ message: `Kriteria dengan key ${kriteria.key} sudah ada` });
+    }
+
+    const created = await kriteriaRepository.create(kriteria);
+    res.status(201).json(created);
   } catch (error) {
-    if (isDuplicate(error)) return res.status(409).json({ message: 'Kriteria sudah ada' });
-    res.status(400).json({ message: error.message });
+    sendDatabaseError(res, error, 'Kriteria sudah ada');
   }
 });
 
-router.put('/:id', async (req, res) => {
-  if (req.body.type != null && !TYPES.includes(req.body.type))
-    return res.status(400).json({ message: 'Type harus benefit atau cost' });
+router.put('/:id', requireAdmin, requireCsrf, async (req, res) => {
   try {
-    const kriteria = await Kriteria.findOneAndUpdate(
-      { id: req.params.id },
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!kriteria) return res.status(404).json({ message: 'Kriteria tidak ditemukan' });
-    res.json(kriteria);
+    const input = validateKriteriaInput(req.body, { partial: true });
+    const existing = await kriteriaRepository.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Kriteria tidak ditemukan' });
+
+    const merged = { ...existing, ...input };
+    validateCriteriaRelationship(merged.key, merged.type);
+
+    const updated = await kriteriaRepository.update(req.params.id, input);
+    res.json(updated);
   } catch (error) {
-    if (isDuplicate(error)) return res.status(409).json({ message: 'Key kriteria sudah dipakai' });
-    res.status(400).json({ message: error.message });
+    sendDatabaseError(res, error, 'ID atau key kriteria sudah digunakan');
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, requireCsrf, async (req, res) => {
   try {
-    const kriteria = await Kriteria.findOneAndDelete({ id: req.params.id });
+    const kriteria = await kriteriaRepository.deleteById(req.params.id);
     if (!kriteria) return res.status(404).json({ message: 'Kriteria tidak ditemukan' });
     res.json({ message: 'Kriteria berhasil dihapus', id: req.params.id });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendDatabaseError(res, error);
   }
 });
 

@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import ThemeToggle from '@/components/ThemeToggle';
 import AnimationScript from '@/components/AnimationScript';
 import { ToastProvider } from '@/components/Toast';
+import { AuthProvider } from '@/components/AuthProvider';
 
 export const metadata: Metadata = {
   title: 'DSS SAW — Pemilihan Kendaraan Roda Dua',
@@ -19,11 +20,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ToastProvider>
-          <Navbar />
-          <main>{children}</main>
-          <Footer />
-          <ThemeToggle />
-          <AnimationScript />
+          <AuthProvider>
+            <Navbar />
+            <main>{children}</main>
+            <Footer />
+            <ThemeToggle />
+            <AnimationScript />
+          </AuthProvider>
         </ToastProvider>
       </body>
     </html>

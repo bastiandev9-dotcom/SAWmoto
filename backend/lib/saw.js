@@ -1,34 +1,65 @@
-// SAW (Simple Additive Weighting) engine — murni, tanpa I/O.
-// data: array motor (object atau Mongoose doc). kriteriaList: array { key, type, bobot }.
+const VALID_KEYS = new Set(['harga', 'tangki', 'cc']);
+const VALID_TYPES = new Set(['benefit', 'cost']);
+
 function hitungSAW(data, kriteriaList, bobotOverride = {}) {
   if (!data.length || !kriteriaList.length) return [];
 
-  const normalized = data.map(motor => {
-    const r = motor.toObject ? motor.toObject() : { ...motor };
-    kriteriaList.forEach(k => {
-      const vals = data.map(m => m[k.key]);
-      const maxVal = Math.max(...vals);
-      const minVal = Math.min(...vals);
-      const value = motor[k.key];
-      const bobot = bobotOverride[k.key] != null ? bobotOverride[k.key] : k.bobot;
-      r['w_' + k.key] = bobot;
-      // type: cost -> min/x, benefit -> x/max. Guard agar tak bagi nol.
-      r['r_' + k.key] = k.type === 'cost'
-        ? (value > 0 ? minVal / value : (minVal === 0 ? 1 : 0))
-        : (maxVal > 0 ? value / maxVal : 0);
-    });
-    return r;
+  const motors = data.map((motor) => ({ ...motor }));
+  const stats = kriteriaList.map((item) => {
+    if (!VALID_KEYS.has(item.key)) {
+      throw new Error(`Key kriteria tidak valid: ${item.key}`);
+    }
+    if (!VALID_TYPES.has(item.type)) {
+      throw new Error(`Type kriteria tidak valid: ${item.type}`);
+    }
+
+    let min = Infinity;
+    let max = -Infinity;
+    for (const motor of motors) {
+      const value = motor[item.key];
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+        throw new Error(`Nilai ${item.key} pada motor ${motor.id} tidak valid`);
+      }
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+
+    const override = Object.prototype.hasOwnProperty.call(bobotOverride, item.key);
+    const bobot = override ? bobotOverride[item.key] : item.bobot;
+    if (typeof bobot !== 'number' || !Number.isFinite(bobot) || bobot < 0) {
+      throw new Error(`Bobot kriteria ${item.key} tidak valid`);
+    }
+
+    return { key: item.key, type: item.type, bobot, min, max };
   });
 
-  const withScore = normalized.map(motor => {
-    let vi = 0;
-    kriteriaList.forEach(k => {
-      vi += motor['w_' + k.key] * motor['r_' + k.key];
-    });
-    return { ...motor, vi };
+  const normalized = motors.map((motor) => {
+    const result = { ...motor };
+    for (const stat of stats) {
+      const value = motor[stat.key];
+      const normalisasi = stat.type === 'cost'
+        ? (value > 0 ? stat.min / value : (stat.min === 0 ? 1 : 0))
+        : (stat.max > 0 ? value / stat.max : 0);
+
+      result[`w_${stat.key}`] = stat.bobot;
+      result[`r_${stat.key}`] = normalisasi;
+    }
+    return result;
   });
 
-  return withScore.sort((a, b) => b.vi - a.vi).map((m, i) => ({ ...m, rank: i + 1 }));
+  return normalized
+    .map((motor) => {
+      let vi = 0;
+      for (const stat of stats) {
+        vi += motor[`w_${stat.key}`] * motor[`r_${stat.key}`];
+      }
+      if (!Number.isFinite(vi)) {
+        throw new Error(`Nilai preferensi motor ${motor.id} tidak valid`);
+      }
+      return { ...motor, vi };
+    })
+    .sort((a, b) => b.vi - a.vi || a.id.localeCompare(b.id))
+    .map((motor, index) => ({ ...motor, rank: index + 1 }));
 }
 
 module.exports = { hitungSAW };
