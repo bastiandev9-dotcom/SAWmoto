@@ -43,3 +43,31 @@ test('input kosong -> array kosong', () => {
   assert.deepStrictEqual(hitungSAW([], kriteria), []);
   assert.deepStrictEqual(hitungSAW(motors, []), []);
 });
+
+test('key kriteria tidak valid ditolak', () => {
+  assert.throws(
+    () => hitungSAW(motors, [{ key: 'tidak_ada', type: 'benefit', bobot: 1 }]),
+    /Key kriteria tidak valid/,
+  );
+});
+
+test('nilai motor nonfinite ditolak', () => {
+  assert.throws(
+    () => hitungSAW([{ id: 'A', harga: Infinity, cc: 1 }, { id: 'B', harga: 1, cc: 2 }], kriteria),
+    /tidak valid/,
+  );
+});
+
+test('bobot warisan object tidak digunakan sebagai override', () => {
+  const override = Object.create({ harga: 100 });
+  const result = hitungSAW(motors, kriteria, override);
+  assert.strictEqual(result.find((motor) => motor.id === 'A').w_harga, 1);
+});
+
+test('tie diberi urutan deterministik berdasarkan id', () => {
+  const result = hitungSAW(
+    [{ id: 'B', harga: 100, cc: 5 }, { id: 'A', harga: 100, cc: 5 }],
+    kriteria,
+  );
+  assert.deepStrictEqual(result.map((motor) => motor.id), ['A', 'B']);
+});

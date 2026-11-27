@@ -1,24 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const Motor = require('../models/Motor');
-const Kriteria = require('../models/Kriteria');
+const motorRepository = require('../repositories/motorRepository');
+const kriteriaRepository = require('../repositories/kriteriaRepository');
 const { hitungSAW } = require('../lib/saw');
+const { sendDatabaseError } = require('../lib/errors');
+const { requireAdmin, requireCsrf } = require('../middleware/auth');
+const {
+  validateMotorInput,
+  validateSawIds,
+  validateBobotOverride,
+} = require('../lib/validation');
 
-// ===== GET ALL MOTORS =====
 router.get('/', async (req, res) => {
   try {
-    const motors = await Motor.find();
-    res.json(motors);
+    res.json(await motorRepository.findAll());
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendDatabaseError(res, error);
   }
 });
 
-// ===== GET SAW CALCULATION =====
 router.get('/calculate/saw', async (req, res) => {
   try {
-    const motors = await Motor.find();
-    const kriteria = await Kriteria.find();
+    const [motors, kriteria] = await Promise.all([
+      motorRepository.findAll(),
+      kriteriaRepository.findAll(),
+    ]);
 
     if (motors.length < 2) {
       return res.status(400).json({ message: 'Minimal 2 motor diperlukan' });
@@ -27,31 +33,25 @@ router.get('/calculate/saw', async (req, res) => {
       return res.status(400).json({ message: 'Kriteria belum tersedia' });
     }
 
-    const result = hitungSAW(motors, kriteria);
-    res.json(result);
+    res.json(hitungSAW(motors, kriteria));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendDatabaseError(res, error);
   }
 });
 
-// ===== POST SAW CALCULATION (subset motor + bobot custom) =====
 router.post('/calculate/saw', async (req, res) => {
   try {
-    const { ids, bobot } = req.body || {};
-
-    if (ids != null && !Array.isArray(ids)) {
-      return res.status(400).json({ message: 'Field ids harus berupa array' });
-    }
-    if (bobot != null && (typeof bobot !== 'object' || Array.isArray(bobot))) {
-      return res.status(400).json({ message: 'Field bobot harus berupa object' });
+    const body = req.body || {};
+    if (typeof body !== 'object' || Array.isArray(body)) {
+      return res.status(400).json({ message: 'Body perhitungan harus berupa object' });
     }
 
-    let motors = await Motor.find();
-    if (Array.isArray(ids) && ids.length) {
-      motors = motors.filter(m => ids.includes(m.id));
-    }
+    const ids = validateSawIds(body.ids);
+    const [motors, kriteria] = await Promise.all([
+      motorRepository.findAll(ids),
+      kriteriaRepository.findAll(),
+    ]);
 
-    const kriteria = await Kriteria.find();
     if (motors.length < 2) {
       return res.status(400).json({ message: 'Minimal 2 motor diperlukan' });
     }
@@ -59,72 +59,54 @@ router.post('/calculate/saw', async (req, res) => {
       return res.status(400).json({ message: 'Kriteria belum tersedia' });
     }
 
-    const bobotOverride = {};
-    if (bobot) {
-      for (const k of kriteria) {
-        const v = Number(bobot[k.key]);
-        if (Number.isFinite(v) && v > 0) bobotOverride[k.key] = v;
-      }
-    }
-
-    const result = hitungSAW(motors, kriteria, bobotOverride);
-    res.json(result);
+    const bobotOverride = validateBobotOverride(body.bobot, kriteria);
+    res.json(hitungSAW(motors, kriteria, bobotOverride));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendDatabaseError(res, error);
   }
 });
 
-// ===== GET MOTOR BY ID =====
 router.get('/:id', async (req, res) => {
   try {
-    const motor = await Motor.findOne({ id: req.params.id });
+    const motor = await motorRepository.findById(req.params.id);
     if (!motor) return res.status(404).json({ message: 'Motor tidak ditemukan' });
     res.json(motor);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendDatabaseError(res, error);
   }
 });
 
-// ===== POST (CREATE) MOTOR =====
-router.post('/', async (req, res) => {
-  const { id, nama, tipe, harga, tangki, cc } = req.body;
-  if (!id || !nama || !tipe || harga == null || tangki == null || cc == null)
-    return res.status(400).json({ message: 'Field id, nama, tipe, harga, tangki, cc wajib diisi' });
+router.post('/', requireAdmin, requireCsrf, async (req, res) => {
   try {
-    if (await Motor.exists({ id }))
-      return res.status(409).json({ message: `Motor dengan id ${id} sudah ada` });
-    const motor = new Motor({ id, nama, tipe, harga, tangki, cc });
-    await motor.save();
-    res.status(201).json(motor);
+    const motor = validateMotorInput(req.body);
+    if (await motorRepository.existsById(motor.id)) {
+      return res.status(409).json({ message: `Motor dengan id ${motor.id} sudah ada` });
+    }
+    const created = await motorRepository.create(motor);
+    res.status(201).json(created);
   } catch (error) {
-    if (error.code === 11000) return res.status(409).json({ message: `Motor dengan id ${id} sudah ada` });
-    res.status(400).json({ message: error.message });
+    sendDatabaseError(res, error, `Motor dengan id ${req.body?.id || ''} sudah ada`);
   }
 });
 
-// ===== PUT (UPDATE) MOTOR =====
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAdmin, requireCsrf, async (req, res) => {
   try {
-    const motor = await Motor.findOneAndUpdate(
-      { id: req.params.id },
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!motor) return res.status(404).json({ message: 'Motor tidak ditemukan' });
-    res.json(motor);
+    const motor = validateMotorInput(req.body, { partial: true });
+    const updated = await motorRepository.update(req.params.id, motor);
+    if (!updated) return res.status(404).json({ message: 'Motor tidak ditemukan' });
+    res.json(updated);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    sendDatabaseError(res, error, 'ID motor sudah digunakan');
   }
 });
 
-// ===== DELETE MOTOR =====
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, requireCsrf, async (req, res) => {
   try {
-    const motor = await Motor.findOneAndDelete({ id: req.params.id });
+    const motor = await motorRepository.deleteById(req.params.id);
     if (!motor) return res.status(404).json({ message: 'Motor tidak ditemukan' });
     res.json({ message: 'Motor berhasil dihapus', id: req.params.id });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    sendDatabaseError(res, error);
   }
 });
 

@@ -1,21 +1,45 @@
 {
   "name": "sawmoto-backend",
   "version": "1.0.0",
-  "description": "Backend SAWmoto dengan MongoDB",
+  "description": "Backend SAWmoto dengan PostgreSQL",
   "main": "server.js",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
     "seed": "node seeds/seedData.js",
-    "test": "node --test"
+    "db:seed": "node seeds/seedData.js",
+    "db:migrate": "node -r dotenv/config node_modules/node-pg-migrate/bin/node-pg-migrate.js up",
+    "db:rollback": "node -r dotenv/config node_modules/node-pg-migrate/bin/node-pg-migrate.js down",
+    "db:migrate-data": "node scripts/migrate-mongo-to-postgres.js",
+    "db:init": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-init.ps1",
+    "db:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-start.ps1",
+    "db:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-stop.ps1",
+    "db:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-status.ps1",
+    "db:shell": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/postgres-shell.ps1",
+    "auth:hash-password": "node scripts/hash-password.js",
+    "test": "node --test test/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "mongoose": "^7.6.3"
+    "express-rate-limit": "^8.7.5",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.9.1",
+    "node-pg-migrate": "^7.6.1",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.11"
+  },
+  "overrides": {
+    "qs": "^6.17.1"
   }
 }

@@ -18,10 +18,10 @@ export default function BandingkanPage() {
     }).catch(() => showToast('❌ Gagal memuat data!', 'error'));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const specs: { key: keyof Motor; label: string; fmt: (v: number) => string }[] = [
-    { key: 'harga', label: '💰 Harga', fmt: fmt },
-    { key: 'tangki', label: '⛽ Tangki', fmt: v => v + ' L' },
-    { key: 'cc', label: '⚙️ CC', fmt: v => v + ' cc' },
+  const specs: { key: keyof Motor; label: string; better: 'lower' | 'higher'; fmt: (v: number) => string }[] = [
+    { key: 'harga', label: '💰 Harga', better: 'lower', fmt: fmt },
+    { key: 'tangki', label: '⛽ Tangki', better: 'higher', fmt: v => v + ' L' },
+    { key: 'cc', label: '⚙️ CC', better: 'higher', fmt: v => v + ' cc' },
   ];
 
   const winner = left && right ? (left.vi > right.vi ? 'left' : right.vi > left.vi ? 'right' : 'draw') : null;
@@ -44,7 +44,7 @@ export default function BandingkanPage() {
             <select value={left?.id || ''} onChange={e => setLeft(motors.find(m => m.id === e.target.value) || null)}
               style={{ width: '100%', padding: '0.7rem 1rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: '0.95rem', outline: 'none', cursor: 'pointer' }}>
               <option value="">— Pilih Motor —</option>
-              {motors.map(m => <option key={m.id} value={m.id}>{m.nama} ({m.tipe})</option>)}
+              {motors.filter(m => m.id !== right?.id).map(m => <option key={m.id} value={m.id}>{m.nama} ({m.tipe})</option>)}
             </select>
           </div>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', color: 'var(--text-muted)', textAlign: 'center', paddingTop: '1.5rem' }}>VS</div>
@@ -53,7 +53,7 @@ export default function BandingkanPage() {
             <select value={right?.id || ''} onChange={e => setRight(motors.find(m => m.id === e.target.value) || null)}
               style={{ width: '100%', padding: '0.7rem 1rem', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', color: 'var(--text)', fontFamily: 'var(--font-body)', fontSize: '0.95rem', outline: 'none', cursor: 'pointer' }}>
               <option value="">— Pilih Motor —</option>
-              {motors.map(m => <option key={m.id} value={m.id}>{m.nama} ({m.tipe})</option>)}
+              {motors.filter(m => m.id !== left?.id).map(m => <option key={m.id} value={m.id}>{m.nama} ({m.tipe})</option>)}
             </select>
           </div>
         </div>
@@ -90,7 +90,7 @@ export default function BandingkanPage() {
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Nilai Vi</div>
                   {/* Vi bar */}
                   <div style={{ height: '6px', background: 'var(--surface2)', borderRadius: '99px', overflow: 'hidden', marginBottom: '1.2rem' }}>
-                    <div style={{ height: '100%', background: 'linear-gradient(90deg,var(--accent),var(--accent2))', borderRadius: '99px', width: `${(m.vi / Math.max(left.vi, right.vi) * 100).toFixed(1)}%`, transition: 'width 1s ease' }}></div>
+                    <div style={{ height: '100%', background: 'linear-gradient(90deg,var(--accent),var(--accent2))', borderRadius: '99px', width: `${(m.vi / (Math.max(left.vi, right.vi) || 1) * 100).toFixed(1)}%`, transition: 'width 1s ease' }}></div>
                   </div>
                 </div>
               ))}
@@ -99,9 +99,10 @@ export default function BandingkanPage() {
             {/* Spec comparison table */}
             <div className="card">
               <div className="card-title">Perbandingan Spesifikasi</div>
-              {specs.map(({ key, label, fmt: fmtFn }) => {
+              {specs.map(({ key, label, better, fmt: fmtFn }) => {
                 const lv = left[key] as number, rv = right[key] as number;
-                const lWin = lv > rv, rWin = rv > lv;
+                const lWin = better === 'lower' ? lv < rv : lv > rv;
+                const rWin = better === 'lower' ? rv < lv : rv > lv;
                 return (
                   <div key={key} style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '1rem', padding: '0.8rem 0', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: lWin ? 700 : 400, color: lWin ? 'var(--accent)' : 'var(--text-muted)', fontSize: '0.95rem' }}>

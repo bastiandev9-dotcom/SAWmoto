@@ -17,7 +17,7 @@ Frontend aplikasi Sistem Pendukung Keputusan pemilihan motor menggunakan metode 
 
 Pastikan sudah terinstall:
 
-1. **Node.js** (v18 atau lebih baru)
+1. **Node.js** (v20.9 atau lebih baru)
    ```bash
    node --version
    ```
@@ -48,7 +48,13 @@ npm install
 
 ### 3. Setup Environment Variables
 
-Buat file `.env.local` di folder `nextjs-frontend/`:
+Salin environment contoh:
+
+```bash
+cp .env.example .env.local
+```
+
+Isi `.env.local`:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3000/api
@@ -83,8 +89,8 @@ npm start
 
 ### Data Motor (/data)
 - Tabel data motor Honda
-- CRUD motor (tambah, edit, hapus)
-- 16 jenis motor tersedia
+- CRUD motor untuk admin yang sudah login
+- 17 jenis motor tersedia
 
 ### Kalkulator SAW (/hitung)
 - Input bobot kriteria
@@ -98,6 +104,10 @@ npm start
 
 ### Bandingkan (/bandingkan)
 - Perbandingan motor side-by-side
+
+### Login Admin (/login)
+- Login admin untuk mengakses tambah/edit/hapus data
+- Cookie JWT HTTP-only dan proteksi CSRF
 
 ### Tentang (/tentang)
 - Informasi aplikasi
@@ -116,6 +126,8 @@ nextjs-frontend/
 │   │   └── page.tsx
 │   ├── hitung/
 │   │   └── page.tsx
+│   ├── login/
+│   │   └── page.tsx
 │   ├── tentang/
 │   │   └── page.tsx
 │   ├── favicon.ico
@@ -125,6 +137,7 @@ nextjs-frontend/
 │   └── page.tsx
 ├── components/
 │   ├── AnimationScript.tsx
+│   ├── AuthProvider.tsx
 │   ├── Footer.tsx
 │   ├── Navbar.tsx
 │   ├── ThemeToggle.tsx
@@ -132,8 +145,7 @@ nextjs-frontend/
 ├── lib/
 │   └── api.ts
 ├── public/
-│   └── icons/
-├── .env.local
+├── .env.example
 ├── next.config.ts
 ├── package.json
 └── tsconfig.json
@@ -143,12 +155,17 @@ nextjs-frontend/
 
 Frontend berkomunikasi dengan backend melalui endpoint:
 
+- `POST /api/auth/login` - Login admin
+- `GET /api/auth/me` - Cek sesi admin
+- `POST /api/auth/logout` - Logout admin
 - `GET /api/motors` - Ambil semua motor
-- `POST /api/motors` - Tambah motor baru
-- `PUT /api/motors/:id` - Update motor
-- `DELETE /api/motors/:id` - Hapus motor
-- `GET /api/motors/calculate/saw` - Hitung SAW ranking
+- `POST /api/motors` - Tambah motor baru, butuh admin + CSRF
+- `PUT /api/motors/:id` - Update motor, butuh admin + CSRF
+- `DELETE /api/motors/:id` - Hapus motor, butuh admin + CSRF
+- `POST /api/motors/calculate/saw` - Hitung SAW ranking
 - `GET /api/kriteria` - Ambil semua kriteria
+
+Request frontend menggunakan `credentials: 'include'` agar cookie admin dikirim.
 
 ## Scripts
 

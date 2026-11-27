@@ -2,18 +2,20 @@
   "openapi": "3.0.3",
   "info": {
     "title": "SAWmoto Backend API",
-    "version": "1.0.0",
-    "description": "Backend sistem pendukung keputusan pemilihan motor dengan metode SAW (Simple Additive Weighting).\n\n**Port:** backend `3000`, frontend Next.js `3001`. Root `/` tidak punya route (404, wajar)."
+    "version": "2.0.0",
+    "description": "Backend sistem pendukung keputusan pemilihan motor dengan metode SAW (Simple Additive Weighting) dan database PostgreSQL.\n\n**Port:** backend `3000`, frontend Next.js `3001`."
   },
   "servers": [
-    { "url": "http://localhost:3000/api", "description": "Local" }
+    { "url": "http://localhost:3000", "description": "Local" }
   ],
   "tags": [
     { "name": "Motors", "description": "CRUD data motor + perhitungan SAW" },
-    { "name": "Kriteria", "description": "Data kriteria penilaian (read-only)" }
+    { "name": "Kriteria", "description": "CRUD data kriteria penilaian" },
+    { "name": "Autentikasi", "description": "Login dan sesi admin" },
+    { "name": "Umum", "description": "Health check" }
   ],
   "paths": {
-    "/motors": {
+    "/api/motors": {
       "get": {
         "tags": ["Motors"],
         "summary": "Ambil semua motor",
@@ -28,6 +30,7 @@
       "post": {
         "tags": ["Motors"],
         "summary": "Tambah motor",
+        "security": [{ "adminCookie": [], "csrfHeader": [] }],
         "requestBody": {
           "required": true,
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MotorInput" } } }
@@ -37,22 +40,23 @@
             "description": "Motor dibuat",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Motor" } } }
           },
-          "400": { "$ref": "#/components/responses/Error" }
+          "400": { "$ref": "#/components/responses/Error" },
+          "409": { "$ref": "#/components/responses/Conflict" }
         }
       }
     },
-    "/motors/calculate/saw": {
+    "/api/motors/calculate/saw": {
       "get": {
         "tags": ["Motors"],
         "summary": "Hitung perangkingan SAW",
-        "description": "Normalisasi tiap kriteria (`harga` selalu cost, sisanya ikut `type`), lalu `Vi = Σ (bobot × r)`, urut menurun, tambah `rank`. Minimal 2 motor.",
+        "description": "Normalisasi mengikuti `type` kriteria, lalu `Vi = Σ (bobot × r)`, urut menurun, tambah `rank`. Minimal 2 motor.",
         "responses": {
           "200": {
             "description": "Motor + `r_<key>` tiap kriteria + `vi` + `rank`",
             "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/RankedMotor" } } } }
           },
           "400": {
-            "description": "Motor kurang dari 2",
+            "description": "Motor kurang dari 2 atau kriteria belum tersedia",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" }, "example": { "message": "Minimal 2 motor diperlukan" } } }
           },
           "500": { "$ref": "#/components/responses/Error" }
@@ -61,7 +65,7 @@
       "post": {
         "tags": ["Motors"],
         "summary": "Hitung SAW (subset + bobot custom)",
-        "description": "Sama seperti GET, tapi bisa pilih subset motor (`ids`) dan menimpa bobot kriteria (`bobot`). Field kosong = semua motor + bobot DB.",
+        "description": "Sama seperti GET, tetapi dapat memilih subset motor (`ids`) dan menimpa bobot kriteria (`bobot`). Array kosong berarti semua motor.",
         "requestBody": {
           "required": false,
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SawRequest" } } }
@@ -72,20 +76,20 @@
             "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/RankedMotor" } } } }
           },
           "400": {
-            "description": "Input tidak valid / motor kurang dari 2",
+            "description": "Input tidak valid atau motor kurang dari 2",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" }, "example": { "message": "Minimal 2 motor diperlukan" } } }
           },
           "500": { "$ref": "#/components/responses/Error" }
         }
       }
     },
-    "/motors/{id}": {
+    "/api/motors/{id}": {
       "parameters": [
-        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "A01", "description": "Kode motor (bukan `_id` MongoDB)" }
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "A01", "description": "Kode motor" }
       ],
       "get": {
         "tags": ["Motors"],
-        "summary": "Ambil motor by id",
+        "summary": "Ambil motor berdasarkan id",
         "responses": {
           "200": { "description": "Motor", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Motor" } } } },
           "404": { "$ref": "#/components/responses/NotFound" },
@@ -94,20 +98,23 @@
       },
       "put": {
         "tags": ["Motors"],
-        "summary": "Update motor by id",
+        "summary": "Update parsial motor berdasarkan id",
+        "security": [{ "adminCookie": [], "csrfHeader": [] }],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MotorInput" } } }
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MotorUpdate" } } }
         },
         "responses": {
           "200": { "description": "Motor hasil update", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Motor" } } } },
+          "400": { "$ref": "#/components/responses/Error" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "400": { "$ref": "#/components/responses/Error" }
+          "409": { "$ref": "#/components/responses/Conflict" }
         }
       },
       "delete": {
         "tags": ["Motors"],
-        "summary": "Hapus motor by id",
+        "summary": "Hapus motor berdasarkan id",
+        "security": [{ "adminCookie": [], "csrfHeader": [] }],
         "responses": {
           "200": {
             "description": "Terhapus",
@@ -118,7 +125,7 @@
         }
       }
     },
-    "/kriteria": {
+    "/api/kriteria": {
       "get": {
         "tags": ["Kriteria"],
         "summary": "Ambil semua kriteria",
@@ -126,7 +133,7 @@
           "200": {
             "description": "Daftar kriteria",
             "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Kriteria" } }, "example": [
-              { "id": "C1", "label": "Harga", "key": "harga", "type": "benefit", "bobot": 5 },
+              { "id": "C1", "label": "Harga", "key": "harga", "type": "cost", "bobot": 5 },
               { "id": "C2", "label": "Kapasitas Tangki", "key": "tangki", "type": "benefit", "bobot": 3 },
               { "id": "C3", "label": "Volume Silinder (CC)", "key": "cc", "type": "benefit", "bobot": 4 }
             ] } }
@@ -137,6 +144,7 @@
       "post": {
         "tags": ["Kriteria"],
         "summary": "Tambah kriteria",
+        "security": [{ "adminCookie": [], "csrfHeader": [] }],
         "requestBody": {
           "required": true,
           "content": { "application/json": { "schema": { "$ref": "#/components/schemas/KriteriaInput" } } }
@@ -144,28 +152,30 @@
         "responses": {
           "201": { "description": "Kriteria dibuat", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Kriteria" } } } },
           "400": { "$ref": "#/components/responses/Error" },
-          "409": { "description": "id/key sudah ada", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } } }
+          "409": { "$ref": "#/components/responses/Conflict" }
         }
       }
     },
-    "/kriteria/{id}": {
+    "/api/kriteria/{id}": {
       "parameters": [
-        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "C4" }
+        { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "example": "C1" }
       ],
       "put": {
         "tags": ["Kriteria"],
-        "summary": "Update kriteria by id",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/KriteriaInput" } } } },
+        "summary": "Update parsial kriteria berdasarkan id",
+        "security": [{ "adminCookie": [], "csrfHeader": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/KriteriaUpdate" } } } },
         "responses": {
           "200": { "description": "Kriteria hasil update", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Kriteria" } } } },
-          "404": { "$ref": "#/components/responses/NotFound" },
           "400": { "$ref": "#/components/responses/Error" },
-          "409": { "description": "key sudah dipakai", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } } }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
         }
       },
       "delete": {
         "tags": ["Kriteria"],
-        "summary": "Hapus kriteria by id",
+        "summary": "Hapus kriteria berdasarkan id",
+        "security": [{ "adminCookie": [], "csrfHeader": [] }],
         "responses": {
           "200": { "description": "Terhapus", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } } },
           "404": { "$ref": "#/components/responses/NotFound" },
@@ -173,31 +183,90 @@
         }
       }
     },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Autentikasi"],
+        "summary": "Login admin",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginRequest" } } }
+        },
+        "responses": {
+          "200": {
+            "description": "Login berhasil, cookie JWT dan CSRF diterbitkan",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthSession" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Autentikasi"],
+        "summary": "Cek sesi admin",
+        "security": [{ "adminCookie": [] }],
+        "responses": {
+          "200": { "description": "Sesi admin aktif", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthSession" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Autentikasi"],
+        "summary": "Logout admin",
+        "security": [{ "adminCookie": [], "csrfHeader": [] }],
+        "responses": {
+          "200": { "description": "Cookie admin dan CSRF dihapus", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": ["Umum"],
-        "summary": "Health check",
+        "summary": "Readiness database",
         "responses": {
           "200": {
-            "description": "Status server",
+            "description": "Server dan database siap",
             "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" }, "db": { "type": "string" }, "uptime": { "type": "number" } } }, "example": { "status": "ok", "db": "connected", "uptime": 123 } } }
+          },
+          "503": {
+            "description": "Database tidak siap",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "status": { "type": "string" }, "db": { "type": "string" }, "uptime": { "type": "number" } } }, "example": { "status": "error", "db": "disconnected", "uptime": 123 } } }
           }
         }
       }
     }
   },
   "components": {
+    "securitySchemes": {
+      "adminCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sawmoto_admin",
+        "description": "JWT admin HTTP-only cookie"
+      },
+      "csrfHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-csrf-token",
+        "description": "Harus cocok dengan cookie sawmoto_csrf"
+      }
+    },
     "schemas": {
       "Motor": {
         "type": "object",
+        "required": ["id", "nama", "tipe", "harga", "tangki", "cc"],
         "properties": {
-          "_id": { "type": "string", "example": "6a02b9e5ab3bb6c15e718dd7" },
           "id": { "type": "string", "example": "A01" },
           "nama": { "type": "string", "example": "Vario 125" },
           "tipe": { "type": "string", "enum": ["Matic", "Moped", "Sport"], "example": "Matic" },
-          "harga": { "type": "number", "example": 11550000, "description": "Cost (semakin murah semakin baik)" },
+          "harga": { "type": "integer", "format": "int64", "example": 11550000, "description": "Cost (semakin murah semakin baik)" },
           "tangki": { "type": "number", "example": 5.5, "description": "Liter" },
-          "cc": { "type": "number", "example": 125 }
+          "cc": { "type": "integer", "example": 125 }
         }
       },
       "MotorInput": {
@@ -207,9 +276,21 @@
           "id": { "type": "string", "example": "A04" },
           "nama": { "type": "string", "example": "Beat" },
           "tipe": { "type": "string", "enum": ["Matic", "Moped", "Sport"], "example": "Matic" },
-          "harga": { "type": "number", "example": 18000000 },
-          "tangki": { "type": "number", "example": 4.2 },
-          "cc": { "type": "number", "example": 110 }
+          "harga": { "type": "integer", "format": "int64", "minimum": 0, "example": 18000000 },
+          "tangki": { "type": "number", "minimum": 0, "example": 4.2 },
+          "cc": { "type": "integer", "minimum": 0, "example": 110 }
+        }
+      },
+      "MotorUpdate": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "id": { "type": "string", "example": "A04" },
+          "nama": { "type": "string", "example": "Beat" },
+          "tipe": { "type": "string", "enum": ["Matic", "Moped", "Sport"], "example": "Matic" },
+          "harga": { "type": "integer", "format": "int64", "minimum": 0, "example": 18000000 },
+          "tangki": { "type": "number", "minimum": 0, "example": 4.2 },
+          "cc": { "type": "integer", "minimum": 0, "example": 110 }
         }
       },
       "RankedMotor": {
@@ -232,31 +313,59 @@
       },
       "Kriteria": {
         "type": "object",
+        "required": ["id", "label", "key", "type", "bobot"],
         "properties": {
-          "_id": { "type": "string", "example": "6a02ba3bab3bb6c15e718de7" },
           "id": { "type": "string", "example": "C1" },
           "label": { "type": "string", "example": "Harga" },
           "key": { "type": "string", "enum": ["harga", "tangki", "cc"], "example": "harga" },
           "type": { "type": "string", "enum": ["benefit", "cost"], "example": "cost" },
-          "bobot": { "type": "number", "example": 5 }
+          "bobot": { "type": "number", "minimum": 0, "example": 5 }
         }
       },
       "SawRequest": {
         "type": "object",
         "properties": {
-          "ids": { "type": "array", "items": { "type": "string" }, "example": ["A01", "A02"], "description": "Subset motor (kode `id`). Kosong = semua." },
-          "bobot": { "type": "object", "example": { "harga": 5, "tangki": 3, "cc": 4 }, "description": "Override bobot per `key` kriteria." }
+          "ids": { "type": "array", "items": { "type": "string" }, "example": ["A01", "A02"], "description": "Subset motor. Kosong berarti semua motor." },
+          "bobot": { "type": "object", "additionalProperties": { "type": "number", "exclusiveMinimum": 0 }, "example": { "harga": 5, "tangki": 3, "cc": 4 }, "description": "Override bobot positif per `key` kriteria." }
         }
       },
       "KriteriaInput": {
         "type": "object",
         "required": ["id", "label", "key", "type", "bobot"],
         "properties": {
-          "id": { "type": "string", "example": "C4" },
+          "id": { "type": "string", "example": "C1" },
           "label": { "type": "string", "example": "Harga" },
-          "key": { "type": "string", "example": "harga" },
+          "key": { "type": "string", "enum": ["harga", "tangki", "cc"], "example": "harga" },
           "type": { "type": "string", "enum": ["benefit", "cost"], "example": "cost" },
-          "bobot": { "type": "number", "example": 5 }
+          "bobot": { "type": "number", "minimum": 0, "example": 5 }
+        }
+      },
+      "KriteriaUpdate": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "id": { "type": "string", "example": "C1" },
+          "label": { "type": "string", "example": "Harga" },
+          "key": { "type": "string", "enum": ["harga", "tangki", "cc"], "example": "harga" },
+          "type": { "type": "string", "enum": ["benefit", "cost"], "example": "cost" },
+          "bobot": { "type": "number", "minimum": 0, "example": 5 }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "type": "string", "example": "admin" },
+          "password": { "type": "string", "format": "password", "example": "password-admin" }
+        }
+      },
+      "AuthSession": {
+        "type": "object",
+        "required": ["username", "role", "csrfToken"],
+        "properties": {
+          "username": { "type": "string", "example": "admin" },
+          "role": { "type": "string", "enum": ["admin"], "example": "admin" },
+          "csrfToken": { "type": "string", "description": "Token untuk header x-csrf-token" }
         }
       },
       "ErrorMessage": {
@@ -267,6 +376,22 @@
     "responses": {
       "Error": {
         "description": "Error server",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } }
+      },
+      "Conflict": {
+        "description": "ID atau key sudah digunakan",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } }
+      },
+      "Unauthorized": {
+        "description": "Login admin diperlukan",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } }
+      },
+      "Forbidden": {
+        "description": "CSRF token tidak valid",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } }
+      },
+      "RateLimited": {
+        "description": "Terlalu banyak request",
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorMessage" } } }
       },
       "NotFound": {
